@@ -13,16 +13,20 @@ type blockStreamHandler struct {
 	cursor string
 }
 
-func (handler *blockStreamHandler) OnBlock(block *pbcodec.Block, cursor string, forkStep pbbstream.ForkStep) {
+func (m *blockStreamHandler) OnBlock(block *pbcodec.Block, cursor string, forkStep pbbstream.ForkStep) {
 	fmt.Println("On Block: ", block, "Cursor: ", cursor, "Fork Step:", forkStep)
 }
 
-func (handler *blockStreamHandler) OnError(err error) {
+func (m *blockStreamHandler) OnError(err error) {
 	fmt.Println("On Error: ", err)
 }
 
-func (handler *blockStreamHandler) OnComplete(cursor string, lastBlockRef bstream.BlockRef) {
+func (m *blockStreamHandler) OnComplete(cursor string, lastBlockRef bstream.BlockRef) {
 	fmt.Println("On Complete cursor: ", cursor, "Last Block Ref: ", lastBlockRef)
+}
+
+func (m *blockStreamHandler) Cursor(cursor string) string {
+	return cursor
 }
 
 type deltaStreamHandler struct {
@@ -30,7 +34,7 @@ type deltaStreamHandler struct {
 }
 
 func (handler *deltaStreamHandler) OnDelta(delta *dfclient.TableDelta, cursor string, forkStep pbbstream.ForkStep) {
-	fmt.Println("On Delta: ", delta.DBOp, "Cursor: ", cursor, "Fork Step:", forkStep)
+	fmt.Println("Cursor: ", cursor, "Fork Step:", forkStep, "\nOn Delta: ", delta)
 }
 
 func (handler *deltaStreamHandler) OnError(err error) {
@@ -42,9 +46,10 @@ func (handler *deltaStreamHandler) OnComplete(lastBlockRef bstream.BlockRef) {
 }
 
 func main() {
-	endpoint := "test.telos.kitchen:9000"
-	apiKey := "server_eeb2882943ae420bfb3eb9bf3d78ed9d"
-	client, err := dfclient.NewDfClient(endpoint, apiKey)
+	dfuseEndpoint := "test.telos.kitchen:9000"
+	dfuseAPIKey := "server_eeb2882943ae420bfb3eb9bf3d78ed9d"
+	chainEndpoint := "https://testnet.telos.caleos.io"
+	client, err := dfclient.NewDfClient(dfuseEndpoint, dfuseAPIKey, chainEndpoint)
 
 	if err != nil {
 		panic(fmt.Sprintln("Error creating client: ", err))
@@ -59,12 +64,12 @@ func main() {
 	// }, &blockStreamHandler{})
 	deltaRequest := &dfclient.DeltaStreamRequest{
 		StartBlockNum:  87822500,
-		StartCursor:    "ARHsGvAmFIfc4SA5svnskczBJJM7VVtrXVjjIxdA09mi8CbN35yuCGFxbUjXma6i20DuSVOt1ovFEigu9JQDu4TvxrFt5CBuFyoqlormr7y8etNOoMoC__0__0",
-		StopBlockNum:   87823501,
+		StartCursor:    "",
+		StopBlockNum:   0,
 		ForkSteps:      []pbbstream.ForkStep{pbbstream.ForkStep_STEP_NEW, pbbstream.ForkStep_STEP_UNDO},
 		ReverseUndoOps: true,
 	}
 	// deltaRequest.AddTables("eosio.token", []string{"balance"})
-	deltaRequest.AddTables("eosio", []string{"payments", "producers"})
+	deltaRequest.AddTables("dao.hypha", []string{"documents", "edges"})
 	client.DeltaStream(deltaRequest, &deltaStreamHandler{})
 }
