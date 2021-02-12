@@ -30,9 +30,9 @@ var (
 	logger       *log.Entry
 )
 
-func init() {
+func initLogger(level log.Level) {
 	//log.SetReportCaller(true)
-	// log.SetLevel(log.TraceLevel)
+	log.SetLevel(level)
 	logger = log.WithFields(log.Fields{
 		"source": "dfclient",
 	})
@@ -199,7 +199,8 @@ func (m *DeltaCursor) HasBlockNum() bool {
 }
 
 //NewDfClient DfClient constructor
-func NewDfClient(dfuseEndpoint, defuseAPIKey, chainEndpoint string) (*DfClient, error) {
+func NewDfClient(dfuseEndpoint, defuseAPIKey, chainEndpoint string, logLevel log.Level) (*DfClient, error) {
+	initLogger(logLevel)
 	dialOptions := []grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{InsecureSkipVerify: true}))}
 
 	dfuseClient, err := dfuse.NewClient(dfuseEndpoint, defuseAPIKey)
