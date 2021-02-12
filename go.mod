@@ -10,6 +10,7 @@ require (
 	github.com/dfuse-io/pbgo v0.0.6-0.20210108203525-2912af560a1f
 	github.com/eoscanada/eos-go v0.9.1-0.20201207210541-96d4aeb4bab1
 	github.com/golang/protobuf v1.4.2
+	github.com/sirupsen/logrus v1.7.0
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	google.golang.org/grpc v1.29.1
 )

@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
-	"os"
 	"regexp"
 	"strconv"
 	"time"
@@ -19,6 +17,7 @@ import (
 	pbbstream "github.com/dfuse-io/pbgo/dfuse/bstream/v1"
 	"github.com/eoscanada/eos-go"
 	"github.com/golang/protobuf/ptypes"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -26,10 +25,18 @@ import (
 )
 
 var (
-	logger       *log.Logger = log.New(os.Stdout, "dfClient", log.Lshortfile)
-	retryDelay               = 5 * time.Second
-	reDeltaIndex             = regexp.MustCompile(`(.*)__([0-9]+)__([0-9]+)__([0-9]+)`)
+	retryDelay   = 5 * time.Second
+	reDeltaIndex = regexp.MustCompile(`(.*)__([0-9]+)__([0-9]+)__([0-9]+)`)
+	logger       *log.Entry
 )
+
+func init() {
+	//log.SetReportCaller(true)
+	// log.SetLevel(log.TraceLevel)
+	logger = log.WithFields(log.Fields{
+		"source": "dfclient",
+	})
+}
 
 //DfClient class, main entry point
 type DfClient struct {
@@ -197,13 +204,13 @@ func NewDfClient(dfuseEndpoint, defuseAPIKey, chainEndpoint string) (*DfClient, 
 
 	dfuseClient, err := dfuse.NewClient(dfuseEndpoint, defuseAPIKey)
 	if err != nil {
-		logger.Println("Unable to create dfuse client")
+		logger.Error("Unable to create dfuse client")
 		return nil, err
 	}
 
 	conn, err := dgrpc.NewExternalClient(dfuseEndpoint, dialOptions...)
 	if err != nil {
-		logger.Printf("Unable to create external gRPC client to %q", dfuseEndpoint)
+		logger.Errorf("Unable to create external gRPC client to %q", dfuseEndpoint)
 		return nil, err
 	}
 
@@ -221,27 +228,26 @@ func NewDfClient(dfuseEndpoint, defuseAPIKey, chainEndpoint string) (*DfClient, 
 func (dfClient *DfClient) BlockStream(request *pbbstream.BlocksRequestV2, handler BlockStreamHandler) {
 	cursor := ""
 	lastBlockRef := bstream.BlockRefEmpty
-	logger.Println("Starting a block stream, request: ", request)
+	logger.Infof("Starting a block stream, request: %v", request)
+	logger.Infoln("Starting a block stream, request: ", request)
 stream:
 	for {
 		tokenInfo, err := dfClient.dfuseClient.GetAPITokenInfo(context.Background())
 		if err != nil {
-			logger.Println("unable to retrieve dfuse API token")
+			logger.Errorln("unable to retrieve dfuse API token")
 			handler.OnError(err)
 			return
 		}
 
 		credentials := oauth.NewOauthAccess(&oauth2.Token{AccessToken: tokenInfo.Token, TokenType: "Bearer"})
-		logger.Printf("Access token: %v", tokenInfo.Token)
 		stream, err := dfClient.streamClient.Blocks(context.Background(), request, grpc.PerRPCCredentials(credentials))
 		if err != nil {
-			logger.Println("unable to start blocks stream")
+			logger.Errorln("unable to start blocks stream")
 			handler.OnError(err)
 			return
 		}
 
 		for {
-			// logger.Println("Waiting for message to reach us")
 			response, err := stream.Recv()
 			if err != nil {
 				if err == io.EOF {
@@ -249,7 +255,7 @@ stream:
 					break stream
 				}
 				request.StartCursor = handler.Cursor(cursor)
-				logger.Printf("Stream encountered a remote error, going to retry, cursor: %v, retry delay: %v, err: %v", request.StartCursor, retryDelay, err)
+				logger.Warnf("Stream encountered a remote error, going to retry, cursor: %v, retry delay: %v, err: %v", request.StartCursor, retryDelay, err)
 				break
 			}
 
@@ -257,7 +263,7 @@ stream:
 			block := &pbcodec.Block{}
 			err = ptypes.UnmarshalAny(response.Block, block)
 			if err != nil {
-				logger.Println("should have been able to unmarshal received block payload")
+				logger.Errorln("should have been able to unmarshal received block payload")
 				handler.OnError(err)
 				return
 			}
@@ -295,13 +301,13 @@ func (m *deltaBlockStreamHandler) OnBlock(block *pbcodec.Block, cursor string, f
 				if dbOp.OldData != nil {
 					oldData, err = m.decoder.Decode(account, table, dbOp.OldData)
 					if err != nil {
-						logger.Printf("Error decoding old data for account: %v, table: %v, blocknum: %v, traceIndex: %v, deltaIndex: %v", account, table, block.Number, traceIndex, deltaIndex)
+						logger.Errorf("Error decoding old data for account: %v, table: %v, blocknum: %v, traceIndex: %v, deltaIndex: %v", account, table, block.Number, traceIndex, deltaIndex)
 					}
 				}
 				if dbOp.NewData != nil {
 					newData, err = m.decoder.Decode(account, table, dbOp.NewData)
 					if err != nil {
-						logger.Printf("Error decoding new data for account: %v, table: %v, blocknum: %v, traceIndex: %v, deltaIndex: %v", account, table, block.Number, traceIndex, deltaIndex)
+						logger.Errorf("Error decoding new data for account: %v, table: %v, blocknum: %v, traceIndex: %v, deltaIndex: %v", account, table, block.Number, traceIndex, deltaIndex)
 					}
 				}
 				if reverse {

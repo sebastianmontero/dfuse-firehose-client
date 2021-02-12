@@ -46,7 +46,7 @@ func (handler *deltaStreamHandler) OnComplete(lastBlockRef bstream.BlockRef) {
 }
 
 func main() {
-	dfuseEndpoint := "test.telos.kitchen:9000"
+	dfuseEndpoint := "localhost:9000"
 	dfuseAPIKey := "server_eeb2882943ae420bfb3eb9bf3d78ed9d"
 	chainEndpoint := "https://testnet.telos.caleos.io"
 	client, err := dfclient.NewDfClient(dfuseEndpoint, dfuseAPIKey, chainEndpoint)
@@ -63,13 +63,13 @@ func main() {
 	// 	Details:           pbbstream.BlockDetails_BLOCK_DETAILS_FULL,
 	// }, &blockStreamHandler{})
 	deltaRequest := &dfclient.DeltaStreamRequest{
-		StartBlockNum:  87822500,
+		StartBlockNum:  87993300,
 		StartCursor:    "",
 		StopBlockNum:   0,
 		ForkSteps:      []pbbstream.ForkStep{pbbstream.ForkStep_STEP_NEW, pbbstream.ForkStep_STEP_UNDO},
 		ReverseUndoOps: true,
 	}
-	// deltaRequest.AddTables("eosio.token", []string{"balance"})
+	// deltaRequest.AddTables("eosio", []string{"payments"})
 	deltaRequest.AddTables("dao.hypha", []string{"documents", "edges"})
 	client.DeltaStream(deltaRequest, &deltaStreamHandler{})
 }
