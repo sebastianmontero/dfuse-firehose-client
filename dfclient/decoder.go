@@ -36,7 +36,7 @@ func (m *Decoder) Decode(account eos.AccountName, table eos.TableName, data []by
 	if err != nil {
 		return nil, err
 	}
-	logger.Trace().Msgf("Decoded data: %v", string(bytes))
+	log.Tracef("Decoded data: %v", string(bytes))
 	return bytes, nil
 }
 

@@ -11,6 +11,7 @@ require (
 	github.com/eoscanada/eos-go v0.9.1-0.20201207210541-96d4aeb4bab1
 	github.com/golang/protobuf v1.4.2
 	github.com/rs/zerolog v1.20.0
+	github.com/sebastianmontero/slog-go v0.0.0-20210213204103-60eda76e8d74
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	google.golang.org/grpc v1.29.1
 )

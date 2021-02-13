@@ -644,6 +644,10 @@ github.com/rs/zerolog v1.20.0/go.mod h1:IzD0RJ65iWH0w97OQQebJEvTZYvsCUm9WVLWBQrJ
 github.com/russross/blackfriday v1.5.2/go.mod h1:JO/DiYxRf+HjHt06OyowR9PTA263kcR/rfWxYHBV53g=
 github.com/russross/blackfriday/v2 v2.0.1/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/ryanuber/columnize v0.0.0-20170703205827-abc90934186a/go.mod h1:sm1tb6uqfes/u+d4ooFouqFdy9/2g9QGwK3SQygK0Ts=
+github.com/sebastianmontero/slog-go v0.0.0-20210213202924-bf824c3dfd87 h1:qaThszVn4tM18ndr3QEzhqvSfSHjP0ufjNpF3KvRW7U=
+github.com/sebastianmontero/slog-go v0.0.0-20210213202924-bf824c3dfd87/go.mod h1:OKZ+YJ89kDlx6URd2SlZqfJDl7ULsHVysV9iZErXtsI=
+github.com/sebastianmontero/slog-go v0.0.0-20210213204103-60eda76e8d74 h1:eNvvwYAh/JZX6pjCTjBqjxfZBuUtZnNjWkr0ew471x0=
+github.com/sebastianmontero/slog-go v0.0.0-20210213204103-60eda76e8d74/go.mod h1:OKZ+YJ89kDlx6URd2SlZqfJDl7ULsHVysV9iZErXtsI=
 github.com/sergi/go-diff v1.0.0/go.mod h1:0CfEIISq7TuYL3j771MWULgwwjU+GofnZX9QAmXWZgo=
 github.com/sergi/go-diff v1.0.1-0.20180205163309-da645544ed44/go.mod h1:0CfEIISq7TuYL3j771MWULgwwjU+GofnZX9QAmXWZgo=
 github.com/sethvargo/go-retry v0.1.0/go.mod h1:JzIOdZqQDNpPkQDmcqgtteAcxFLtYpNF/zJCM1ysDg8=
