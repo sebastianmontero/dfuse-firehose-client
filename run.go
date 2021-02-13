@@ -6,8 +6,8 @@ import (
 	"github.com/dfuse-io/bstream"
 	pbcodec "github.com/dfuse-io/dfuse-eosio/pb/dfuse/eosio/codec/v1"
 	pbbstream "github.com/dfuse-io/pbgo/dfuse/bstream/v1"
+	"github.com/rs/zerolog"
 	"github.com/sebastianmontero/dfuse-firehose-client/dfclient"
-	"github.com/sirupsen/logrus"
 )
 
 type blockStreamHandler struct {
@@ -50,7 +50,7 @@ func main() {
 	dfuseEndpoint := "localhost:9000"
 	dfuseAPIKey := "server_eeb2882943ae420bfb3eb9bf3d78ed9d"
 	chainEndpoint := "https://testnet.telos.caleos.io"
-	client, err := dfclient.NewDfClient(dfuseEndpoint, dfuseAPIKey, chainEndpoint, logrus.InfoLevel)
+	client, err := dfclient.NewDfClient(dfuseEndpoint, dfuseAPIKey, chainEndpoint, zerolog.TraceLevel)
 
 	if err != nil {
 		panic(fmt.Sprintln("Error creating client: ", err))
