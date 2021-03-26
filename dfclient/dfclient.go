@@ -278,7 +278,6 @@ type deltaBlockStreamHandler struct {
 }
 
 func (m *deltaBlockStreamHandler) OnBlock(block *pbcodec.Block, cursor string, forkStep pbbstream.ForkStep) {
-	fmt.Println("Cursor in block: ", cursor)
 	reverse := m.request.ReverseUndoOps && forkStep == pbbstream.ForkStep_STEP_UNDO
 	traces := block.TransactionTraces()
 	deltaCursor := m.request.cursor
