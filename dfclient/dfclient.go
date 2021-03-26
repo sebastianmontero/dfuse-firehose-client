@@ -74,19 +74,21 @@ func (m *TableDelta) String() string {
 //DeltaStreamHandler Should be implemented by any client that wants to process table deltas
 type DeltaStreamHandler interface {
 	OnDelta(delta *TableDelta, cursor string, forkStep pbbstream.ForkStep)
+	OnHeartBeat(block *pbcodec.Block, cursor string)
 	OnError(err error)
 	OnComplete(lastBlockRef bstream.BlockRef)
 }
 
 //DeltaStreamRequest Enables the specification of a delta request
 type DeltaStreamRequest struct {
-	StartBlockNum  int64
-	StartCursor    string
-	StopBlockNum   uint64
-	ForkSteps      []pbbstream.ForkStep
-	ReverseUndoOps bool
-	tables         map[string]map[string]bool
-	cursor         *DeltaCursor
+	StartBlockNum      int64
+	StartCursor        string
+	StopBlockNum       uint64
+	ForkSteps          []pbbstream.ForkStep
+	ReverseUndoOps     bool
+	tables             map[string]map[string]bool
+	cursor             *DeltaCursor
+	heartBeatFrequency uint
 }
 
 //ParseCursor parses startCursor and creates a new DeltaCursor
@@ -269,16 +271,19 @@ stream:
 }
 
 type deltaBlockStreamHandler struct {
-	decoder *Decoder
-	request *DeltaStreamRequest
-	handler DeltaStreamHandler
+	decoder             *Decoder
+	request             *DeltaStreamRequest
+	handler             DeltaStreamHandler
+	countSinceHeartBeat uint
 }
 
 func (m *deltaBlockStreamHandler) OnBlock(block *pbcodec.Block, cursor string, forkStep pbbstream.ForkStep) {
+	fmt.Println("Cursor in block: ", cursor)
 	reverse := m.request.ReverseUndoOps && forkStep == pbbstream.ForkStep_STEP_UNDO
 	traces := block.TransactionTraces()
 	deltaCursor := m.request.cursor
 	deltaCursor.BlockNum = uint64(block.Number)
+	m.countSinceHeartBeat++
 	for traceIndex := deltaCursor.TraceIndex; traceIndex < len(traces); traceIndex++ {
 		trace := traces[traceIndex]
 		dbOps := trace.DbOps
@@ -327,12 +332,17 @@ func (m *deltaBlockStreamHandler) OnBlock(block *pbcodec.Block, cursor string, f
 				},
 					m.request.StartCursor,
 					forkStep)
+				m.countSinceHeartBeat = 0 //Deltas are considered heart beats
 			}
-			deltaCursor.DeltaIndex = 0
 		}
-		deltaCursor.TraceIndex = 0
-		deltaCursor.BlockCursor = cursor
-		m.request.StartCursor = deltaCursor.String()
+		deltaCursor.DeltaIndex = 0
+	}
+	deltaCursor.TraceIndex = 0
+	deltaCursor.BlockCursor = cursor
+	m.request.StartCursor = deltaCursor.String()
+	if m.countSinceHeartBeat > m.request.heartBeatFrequency {
+		m.handler.OnHeartBeat(block, m.request.StartCursor)
+		m.countSinceHeartBeat = 0
 	}
 }
 

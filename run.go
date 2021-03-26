@@ -16,7 +16,8 @@ type blockStreamHandler struct {
 }
 
 func (m *blockStreamHandler) OnBlock(block *pbcodec.Block, cursor string, forkStep pbbstream.ForkStep) {
-	fmt.Println("On Block: ", block, "Cursor: ", cursor, "Fork Step:", forkStep)
+	// fmt.Println("On Block: ", block, "Cursor: ", cursor, "Fork Step:", forkStep)
+	fmt.Println("Cursor: ", cursor, "Fork Step:", forkStep)
 }
 
 func (m *blockStreamHandler) OnError(err error) {
@@ -39,6 +40,10 @@ func (handler *deltaStreamHandler) OnDelta(delta *dfclient.TableDelta, cursor st
 	fmt.Println("Cursor: ", cursor, "Fork Step:", forkStep, "\nOn Delta: ", delta)
 }
 
+func (handler *deltaStreamHandler) OnHeartBeat(block *pbcodec.Block, cursor string) {
+	fmt.Println("On Heartbeat, block num: ", block.Number, " cursor: ", cursor)
+}
+
 func (handler *deltaStreamHandler) OnError(err error) {
 	fmt.Println("On Error: ", err)
 }
@@ -57,21 +62,24 @@ func main() {
 		panic(fmt.Sprintln("Error creating client: ", err))
 	}
 	// client.BlockStream(&pbbstream.BlocksRequestV2{
-	// 	StartBlockNum:     87822500,
-	// 	StartCursor:       "",
-	// 	StopBlockNum:      87823501,
-	// 	ForkSteps:         []pbbstream.ForkStep{pbbstream.ForkStep_STEP_IRREVERSIBLE},
-	// 	IncludeFilterExpr: "receiver in ['eosio.token']",
-	// 	Details:           pbbstream.BlockDetails_BLOCK_DETAILS_FULL,
+	// 	StartBlockNum: 100450000,
+
+	// 	// StartCursor:  "Wjf2BxOOdnd-hvrA28BySaWwLpcyB15sVw_mLBVGj4v--HuX1JrwVDN1bRSFwqr3jxS_Qgn_3YrMQnsuo8UFu9XqkL5g5HM_RH8ll4jsqb3vKvf6OFhKcek0WL_fNtzRWzY=",
+	// 	StopBlockNum: 0,
+	// 	// ForkSteps:     []pbbstream.ForkStep{pbbstream.ForkStep_STEP_IRREVERSIBLE},
+
+	// 	ForkSteps: []pbbstream.ForkStep{pbbstream.ForkStep_STEP_NEW, pbbstream.ForkStep_STEP_UNDO},
+	// 	// IncludeFilterExpr: "receiver in ['eosio.token']",
+	// 	// Details: pbbstream.BlockDetails_BLOCK_DETAILS_FULL,
 	// }, &blockStreamHandler{})
 	deltaRequest := &dfclient.DeltaStreamRequest{
-		StartBlockNum:  87993300,
-		StartCursor:    "",
+		StartBlockNum: 143243564,
+		// StartCursor:    "__143243564__0__29",
 		StopBlockNum:   0,
 		ForkSteps:      []pbbstream.ForkStep{pbbstream.ForkStep_STEP_NEW, pbbstream.ForkStep_STEP_UNDO},
 		ReverseUndoOps: true,
 	}
-	// deltaRequest.AddTables("eosio", []string{"payments"})
-	deltaRequest.AddTables("dao.hypha", []string{"documents", "edges"})
+	deltaRequest.AddTables("eosio", []string{"payments"})
+	// deltaRequest.AddTables("dao.hypha", []string{"documents", "edges"})
 	client.DeltaStream(deltaRequest, &deltaStreamHandler{})
 }
