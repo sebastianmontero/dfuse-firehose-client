@@ -86,9 +86,9 @@ type DeltaStreamRequest struct {
 	StopBlockNum       uint64
 	ForkSteps          []pbbstream.ForkStep
 	ReverseUndoOps     bool
+	HeartBeatFrequency uint
 	tables             map[string]map[string]bool
 	cursor             *DeltaCursor
-	heartBeatFrequency uint
 }
 
 //ParseCursor parses startCursor and creates a new DeltaCursor
@@ -340,7 +340,7 @@ func (m *deltaBlockStreamHandler) OnBlock(block *pbcodec.Block, cursor string, f
 	deltaCursor.TraceIndex = 0
 	deltaCursor.BlockCursor = cursor
 	m.request.StartCursor = deltaCursor.String()
-	if m.countSinceHeartBeat > m.request.heartBeatFrequency {
+	if m.countSinceHeartBeat > m.request.HeartBeatFrequency {
 		m.handler.OnHeartBeat(block, m.request.StartCursor)
 		m.countSinceHeartBeat = 0
 	}
