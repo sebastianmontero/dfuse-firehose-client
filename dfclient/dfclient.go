@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/dfuse-io/bstream"
-	dfuse "github.com/dfuse-io/client-go"
 	pbcodec "github.com/dfuse-io/dfuse-eosio/pb/dfuse/eosio/codec/v1"
 	"github.com/dfuse-io/dgrpc"
 	pbbstream "github.com/dfuse-io/pbgo/dfuse/bstream/v1"
 	"github.com/eoscanada/eos-go"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/sebastianmontero/slog-go/slog"
+	dfuse "github.com/streamingfast/client-go"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -35,6 +35,11 @@ type DfClient struct {
 	dfuseClient  dfuse.Client
 	streamClient pbbstream.BlockStreamV2Client
 	decoder      *Decoder
+	apiKey       string
+}
+
+func (m *DfClient) IsUsingAuthentication() bool {
+	return m.apiKey != ""
 }
 
 //BlockStreamHandler Should be implemented by any client that wants to process blocks
@@ -193,11 +198,14 @@ func (m *DeltaCursor) HasBlockNum() bool {
 }
 
 //NewDfClient DfClient constructor
-func NewDfClient(dfuseEndpoint, defuseAPIKey, chainEndpoint string, logConfig *slog.Config) (*DfClient, error) {
+func NewDfClient(dfuseEndpoint, dfuseAPIKey, chainEndpoint string, logConfig *slog.Config) (*DfClient, error) {
 	log = slog.New(logConfig, "dfclient")
 	dialOptions := []grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{InsecureSkipVerify: true}))}
-
-	dfuseClient, err := dfuse.NewClient(dfuseEndpoint, defuseAPIKey)
+	dfuseClientOptions := make([]dfuse.ClientOption, 0)
+	if dfuseAPIKey == "" {
+		dfuseClientOptions = append(dfuseClientOptions, dfuse.WithoutAuthentication())
+	}
+	dfuseClient, err := dfuse.NewClient(dfuseEndpoint, dfuseAPIKey, dfuseClientOptions...)
 	if err != nil {
 		log.Error(err, "Unable to create dfuse client")
 		return nil, err
@@ -216,6 +224,7 @@ func NewDfClient(dfuseEndpoint, defuseAPIKey, chainEndpoint string, logConfig *s
 		dfuseClient:  dfuseClient,
 		streamClient: streamClient,
 		decoder:      decoder,
+		apiKey:       dfuseAPIKey,
 	}, nil
 }
 
@@ -226,15 +235,20 @@ func (dfClient *DfClient) BlockStream(request *pbbstream.BlocksRequestV2, handle
 	log.Infof("Starting a block stream, request: %v", request)
 stream:
 	for {
-		tokenInfo, err := dfClient.dfuseClient.GetAPITokenInfo(context.Background())
-		if err != nil {
-			log.Error(err, "Unable to retrieve dfuse API token")
-			handler.OnError(err)
-			return
+		callOptions := make([]grpc.CallOption, 0)
+		if dfClient.IsUsingAuthentication() {
+			tokenInfo, err := dfClient.dfuseClient.GetAPITokenInfo(context.Background())
+			if err != nil {
+				log.Error(err, "Unable to retrieve dfuse API token")
+				handler.OnError(err)
+				return
+			}
+
+			credentials := oauth.NewOauthAccess(&oauth2.Token{AccessToken: tokenInfo.Token, TokenType: "Bearer"})
+			callOptions = append(callOptions, grpc.PerRPCCredentials(credentials))
 		}
 
-		credentials := oauth.NewOauthAccess(&oauth2.Token{AccessToken: tokenInfo.Token, TokenType: "Bearer"})
-		stream, err := dfClient.streamClient.Blocks(context.Background(), request, grpc.PerRPCCredentials(credentials))
+		stream, err := dfClient.streamClient.Blocks(context.Background(), request, callOptions...)
 		if err != nil {
 			log.Error(err, "unable to start blocks stream")
 			handler.OnError(err)
