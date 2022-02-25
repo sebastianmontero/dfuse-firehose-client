@@ -41,7 +41,7 @@ func (handler *deltaStreamHandler) OnDelta(delta *dfclient.TableDelta, cursor st
 }
 
 func (handler *deltaStreamHandler) OnHeartBeat(block *pbcodec.Block, cursor string) {
-	fmt.Println("On Heartbeat, block num: ", block.Number, " cursor: ", cursor)
+	// fmt.Println("On Heartbeat, block num: ", block.Number, " cursor: ", cursor)
 }
 
 func (handler *deltaStreamHandler) OnError(err error) {
@@ -53,7 +53,7 @@ func (handler *deltaStreamHandler) OnComplete(lastBlockRef bstream.BlockRef) {
 }
 
 func main() {
-	dfuseEndpoint := "localhost:9000"
+	dfuseEndpoint := "fh.tekit.io:443"
 	dfuseAPIKey := ""
 	chainEndpoint := "https://testnet.telos.caleos.io"
 	client, err := dfclient.NewDfClient(dfuseEndpoint, dfuseAPIKey, chainEndpoint, &slog.Config{Pretty: true, Level: zerolog.TraceLevel})
@@ -74,12 +74,12 @@ func main() {
 	// }, &blockStreamHandler{})
 	deltaRequest := &dfclient.DeltaStreamRequest{
 		StartBlockNum: 143243564,
-		// StartCursor:    "__143243564__0__29",
+		// StartCursor:    "xAd6LfnrafUbwRP4yKYJNKWwLpcyB19oXQzmLhFAj4v_9nqT2cuvVWVybE7Ul_um2hboSgml3YvJF3h4ppRYvYW8kLkwvCA7E3p_x4Dq-bC5eKamOFgZeLtkWe_batzRWjnQag34erYE6tXuPPuPZBAwNsVyeGfl2jxZoYxcJaJD63Izxj70Jsba1vjA8NEX_OZxR7f3kCnyVDZ_JUkIP8uFMaaWt2ghM30=__157873402__1__2",
 		StopBlockNum:   0,
 		ForkSteps:      []pbbstream.ForkStep{pbbstream.ForkStep_STEP_NEW, pbbstream.ForkStep_STEP_UNDO},
 		ReverseUndoOps: true,
 	}
-	deltaRequest.AddTables("eosio", []string{"payments"})
-	// deltaRequest.AddTables("dao.hypha", []string{"documents", "edges"})
+	// deltaRequest.AddTables("eosio", []string{"payments"})
+	deltaRequest.AddTables("mtdhoxhyphaa", []string{"documents", "edges"})
 	client.DeltaStream(deltaRequest, &deltaStreamHandler{})
 }

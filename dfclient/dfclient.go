@@ -298,6 +298,7 @@ func (m *deltaBlockStreamHandler) OnBlock(block *pbcodec.Block, cursor string, f
 	deltaCursor.BlockNum = uint64(block.Number)
 	m.countSinceHeartBeat++
 	for traceIndex := deltaCursor.TraceIndex; traceIndex < len(traces); traceIndex++ {
+		deltaCursor.TraceIndex = traceIndex
 		trace := traces[traceIndex]
 		dbOps := trace.DbOps
 		for deltaIndex := deltaCursor.DeltaIndex; deltaIndex < len(dbOps); deltaIndex++ {
