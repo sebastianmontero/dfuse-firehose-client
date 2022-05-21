@@ -294,6 +294,9 @@ type deltaBlockStreamHandler struct {
 func (m *deltaBlockStreamHandler) OnBlock(block *pbcodec.Block, cursor string, forkStep pbbstream.ForkStep) {
 	reverse := m.request.ReverseUndoOps && forkStep == pbbstream.ForkStep_STEP_UNDO
 	traces := block.TransactionTraces()
+	if reverse {
+		traces = reverseTraces(traces)
+	}
 	deltaCursor := m.request.cursor
 	deltaCursor.BlockNum = uint64(block.Number)
 	m.countSinceHeartBeat++
@@ -301,6 +304,9 @@ func (m *deltaBlockStreamHandler) OnBlock(block *pbcodec.Block, cursor string, f
 		deltaCursor.TraceIndex = traceIndex
 		trace := traces[traceIndex]
 		dbOps := trace.DbOps
+		if reverse {
+			dbOps = reverseDBOps(dbOps)
+		}
 		for deltaIndex := deltaCursor.DeltaIndex; deltaIndex < len(dbOps); deltaIndex++ {
 			dbOp := dbOps[deltaIndex]
 			if m.request.HasTable(dbOp.Code, dbOp.TableName) {
@@ -404,4 +410,20 @@ func (dfClient *DfClient) DeltaStream(request *DeltaStreamRequest, handler Delta
 		handler: handler,
 	})
 
+}
+
+func reverseTraces(traces []*pbcodec.TransactionTrace) []*pbcodec.TransactionTrace {
+	reverse := make([]*pbcodec.TransactionTrace, 0, len(traces))
+	for i := len(traces) - 1; i >= 0; i-- {
+		reverse = append(reverse, traces[i])
+	}
+	return reverse
+}
+
+func reverseDBOps(dbOps []*pbcodec.DBOp) []*pbcodec.DBOp {
+	reverse := make([]*pbcodec.DBOp, 0, len(dbOps))
+	for i := len(dbOps) - 1; i >= 0; i-- {
+		reverse = append(reverse, dbOps[i])
+	}
+	return reverse
 }

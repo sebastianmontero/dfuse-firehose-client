@@ -73,8 +73,8 @@ func main() {
 	// 	// Details: pbbstream.BlockDetails_BLOCK_DETAILS_FULL,
 	// }, &blockStreamHandler{})
 	deltaRequest := &dfclient.DeltaStreamRequest{
-		StartBlockNum: 143243564,
-		// StartCursor:    "xAd6LfnrafUbwRP4yKYJNKWwLpcyB19oXQzmLhFAj4v_9nqT2cuvVWVybE7Ul_um2hboSgml3YvJF3h4ppRYvYW8kLkwvCA7E3p_x4Dq-bC5eKamOFgZeLtkWe_batzRWjnQag34erYE6tXuPPuPZBAwNsVyeGfl2jxZoYxcJaJD63Izxj70Jsba1vjA8NEX_OZxR7f3kCnyVDZ_JUkIP8uFMaaWt2ghM30=__157873402__1__2",
+		StartBlockNum:  160699587,
+		StartCursor:    "-NZ02QtqUc65KeC9HlF3Q6WwLpcyB11tXQPmLRREj4un9CaTi5_0AmUgPE_Ywfuj3BfoQl-s2NebQHd888FV6tS5lrw163Q_T3wsktrt-OLsLfr3OA0TcuhkDuuMY9DRWjvVagL4frAJ6tW2PqePMxZgMMcvJDe1h2pWpdFccaMX63c9yjr4J8eA0aiV9oQUrbMsEOXzx3qmVmYof04POsSLbvHK6mp2Z3E=__172883755__0__0",
 		StopBlockNum:   0,
 		ForkSteps:      []pbbstream.ForkStep{pbbstream.ForkStep_STEP_NEW, pbbstream.ForkStep_STEP_UNDO},
 		ReverseUndoOps: true,
