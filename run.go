@@ -41,7 +41,7 @@ func (handler *deltaStreamHandler) OnDelta(delta *dfclient.TableDelta, cursor st
 }
 
 func (handler *deltaStreamHandler) OnHeartBeat(block *pbcodec.Block, cursor string) {
-	// fmt.Println("On Heartbeat, block num: ", block.Number, " cursor: ", cursor)
+	fmt.Println("On Heartbeat, block num: ", block.Number, " cursor: ", cursor)
 }
 
 func (handler *deltaStreamHandler) OnError(err error) {
@@ -53,8 +53,8 @@ func (handler *deltaStreamHandler) OnComplete(lastBlockRef bstream.BlockRef) {
 }
 
 func main() {
-	dfuseEndpoint := "fh.tekit.io:443"
-	dfuseAPIKey := ""
+	dfuseEndpoint := "telostest.firehose.eosnation.io"
+	dfuseAPIKey := "dc6087c88050f3caeed46f22767c357c"
 	chainEndpoint := "https://testnet.telos.caleos.io"
 	client, err := dfclient.NewDfClient(dfuseEndpoint, dfuseAPIKey, chainEndpoint, &slog.Config{Pretty: true, Level: zerolog.TraceLevel})
 
@@ -73,8 +73,8 @@ func main() {
 	// 	// Details: pbbstream.BlockDetails_BLOCK_DETAILS_FULL,
 	// }, &blockStreamHandler{})
 	deltaRequest := &dfclient.DeltaStreamRequest{
-		StartBlockNum:  160699587,
-		StartCursor:    "-NZ02QtqUc65KeC9HlF3Q6WwLpcyB11tXQPmLRREj4un9CaTi5_0AmUgPE_Ywfuj3BfoQl-s2NebQHd888FV6tS5lrw163Q_T3wsktrt-OLsLfr3OA0TcuhkDuuMY9DRWjvVagL4frAJ6tW2PqePMxZgMMcvJDe1h2pWpdFccaMX63c9yjr4J8eA0aiV9oQUrbMsEOXzx3qmVmYof04POsSLbvHK6mp2Z3E=__172883755__0__0",
+		StartBlockNum: 194413779,
+		// StartCursor:    "-NZ02QtqUc65KeC9HlF3Q6WwLpcyB11tXQPmLRREj4un9CaTi5_0AmUgPE_Ywfuj3BfoQl-s2NebQHd888FV6tS5lrw163Q_T3wsktrt-OLsLfr3OA0TcuhkDuuMY9DRWjvVagL4frAJ6tW2PqePMxZgMMcvJDe1h2pWpdFccaMX63c9yjr4J8eA0aiV9oQUrbMsEOXzx3qmVmYof04POsSLbvHK6mp2Z3E=__172883755__0__0",
 		StopBlockNum:   0,
 		ForkSteps:      []pbbstream.ForkStep{pbbstream.ForkStep_STEP_NEW, pbbstream.ForkStep_STEP_UNDO},
 		ReverseUndoOps: true,

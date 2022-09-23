@@ -30,7 +30,7 @@ var (
 	log          *slog.Log
 )
 
-//DfClient class, main entry point
+// DfClient class, main entry point
 type DfClient struct {
 	dfuseClient  dfuse.Client
 	streamClient pbbstream.BlockStreamV2Client
@@ -42,7 +42,7 @@ func (m *DfClient) IsUsingAuthentication() bool {
 	return m.apiKey != ""
 }
 
-//BlockStreamHandler Should be implemented by any client that wants to process blocks
+// BlockStreamHandler Should be implemented by any client that wants to process blocks
 type BlockStreamHandler interface {
 	OnBlock(block *pbcodec.Block, cursor string, forkStep pbbstream.ForkStep)
 	OnError(err error)
@@ -50,7 +50,7 @@ type BlockStreamHandler interface {
 	Cursor(cursor string) string
 }
 
-//TableDelta Contains table data data
+// TableDelta Contains table data data
 type TableDelta struct {
 	Operation  pbcodec.DBOp_Operation
 	Code       string
@@ -76,7 +76,7 @@ func (m *TableDelta) String() string {
 	)
 }
 
-//DeltaStreamHandler Should be implemented by any client that wants to process table deltas
+// DeltaStreamHandler Should be implemented by any client that wants to process table deltas
 type DeltaStreamHandler interface {
 	OnDelta(delta *TableDelta, cursor string, forkStep pbbstream.ForkStep)
 	OnHeartBeat(block *pbcodec.Block, cursor string)
@@ -84,7 +84,7 @@ type DeltaStreamHandler interface {
 	OnComplete(lastBlockRef bstream.BlockRef)
 }
 
-//DeltaStreamRequest Enables the specification of a delta request
+// DeltaStreamRequest Enables the specification of a delta request
 type DeltaStreamRequest struct {
 	StartBlockNum      int64
 	StartCursor        string
@@ -96,7 +96,7 @@ type DeltaStreamRequest struct {
 	cursor             *DeltaCursor
 }
 
-//ParseCursor parses startCursor and creates a new DeltaCursor
+// ParseCursor parses startCursor and creates a new DeltaCursor
 func (m *DeltaStreamRequest) ParseCursor() (*DeltaCursor, error) {
 	cursor, err := NewDeltaCursor(m.StartCursor)
 	if err != nil {
@@ -106,7 +106,7 @@ func (m *DeltaStreamRequest) ParseCursor() (*DeltaCursor, error) {
 	return cursor, nil
 }
 
-//AddTables Adds tables for a specific contract to the delta request
+// AddTables Adds tables for a specific contract to the delta request
 func (m *DeltaStreamRequest) AddTables(contract string, tables []string) {
 	if m.tables == nil {
 		m.tables = make(map[string]map[string]bool)
@@ -121,7 +121,7 @@ func (m *DeltaStreamRequest) AddTables(contract string, tables []string) {
 	}
 }
 
-//HasTable Checks if a table was requested
+// HasTable Checks if a table was requested
 func (m *DeltaStreamRequest) HasTable(contract string, table string) bool {
 
 	if contractMap, ok := m.tables[contract]; ok {
@@ -131,7 +131,7 @@ func (m *DeltaStreamRequest) HasTable(contract string, table string) bool {
 	return false
 }
 
-//Contracts Returns contracts with requested tables
+// Contracts Returns contracts with requested tables
 func (m *DeltaStreamRequest) Contracts() []string {
 	contracts := make([]string, 0, len(m.tables))
 
@@ -143,7 +143,7 @@ func (m *DeltaStreamRequest) Contracts() []string {
 	return contracts
 }
 
-//DeltaCursor stores delta cursor information
+// DeltaCursor stores delta cursor information
 type DeltaCursor struct {
 	BlockCursor string
 	BlockNum    uint64
@@ -151,14 +151,14 @@ type DeltaCursor struct {
 	DeltaIndex  int
 }
 
-//NewDeltaCursor creates a new cursor
+// NewDeltaCursor creates a new cursor
 func NewDeltaCursor(cursor string) (*DeltaCursor, error) {
 	deltaCursor := &DeltaCursor{}
 	err := deltaCursor.Update(cursor)
 	return deltaCursor, err
 }
 
-//Update parses a string cursor into its different components
+// Update parses a string cursor into its different components
 func (m *DeltaCursor) Update(cursor string) error {
 	if cursor != "" {
 		matches := reDeltaIndex.FindAllStringSubmatch(cursor, -1)
@@ -197,13 +197,15 @@ func (m *DeltaCursor) HasBlockNum() bool {
 	return m.BlockNum != 0
 }
 
-//NewDfClient DfClient constructor
+// NewDfClient DfClient constructor
 func NewDfClient(dfuseEndpoint, dfuseAPIKey, chainEndpoint string, logConfig *slog.Config) (*DfClient, error) {
 	log = slog.New(logConfig, "dfclient")
 	dialOptions := []grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{InsecureSkipVerify: true}))}
 	dfuseClientOptions := make([]dfuse.ClientOption, 0)
 	if dfuseAPIKey == "" {
 		dfuseClientOptions = append(dfuseClientOptions, dfuse.WithoutAuthentication())
+	} else {
+		dfuseClientOptions = append(dfuseClientOptions, dfuse.WithAuthURL("https://auth.eosnation.io"))
 	}
 	dfuseClient, err := dfuse.NewClient(dfuseEndpoint, dfuseAPIKey, dfuseClientOptions...)
 	if err != nil {
@@ -228,7 +230,7 @@ func NewDfClient(dfuseEndpoint, dfuseAPIKey, chainEndpoint string, logConfig *sl
 	}, nil
 }
 
-//BlockStream enables the streaming of blocks
+// BlockStream enables the streaming of blocks
 func (dfClient *DfClient) BlockStream(request *pbbstream.BlocksRequestV2, handler BlockStreamHandler) {
 	cursor := ""
 	lastBlockRef := bstream.BlockRefEmpty
@@ -248,15 +250,18 @@ stream:
 			callOptions = append(callOptions, grpc.PerRPCCredentials(credentials))
 		}
 
+		fmt.Println("Before calling Blocks")
 		stream, err := dfClient.streamClient.Blocks(context.Background(), request, callOptions...)
+		fmt.Println("After calling Blocks")
 		if err != nil {
 			log.Error(err, "unable to start blocks stream")
 			handler.OnError(err)
 			return
 		}
-
+		fmt.Println("Recieving from stream")
 		for {
 			response, err := stream.Recv()
+			fmt.Println("Resonse from stream:", response)
 			if err != nil {
 				if err == io.EOF {
 					handler.OnComplete(cursor, lastBlockRef)
@@ -378,7 +383,7 @@ func (m *deltaBlockStreamHandler) Cursor(cursor string) string {
 	return m.request.cursor.BlockCursor
 }
 
-//DeltaStream enables the streaming of deltas
+// DeltaStream enables the streaming of deltas
 func (dfClient *DfClient) DeltaStream(request *DeltaStreamRequest, handler DeltaStreamHandler) {
 	contracts := request.Contracts()
 	if len(contracts) == 0 {

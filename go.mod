@@ -11,7 +11,7 @@ require (
 	github.com/golang/protobuf v1.4.2
 	github.com/rs/zerolog v1.20.0
 	github.com/sebastianmontero/slog-go v0.0.0-20210213204103-60eda76e8d74
-	github.com/streamingfast/client-go v0.0.0-20210812015858-cbecf4a8d3c7 // indirect
+	github.com/streamingfast/client-go v0.0.0-20210812015858-cbecf4a8d3c7
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	google.golang.org/grpc v1.35.0
 )
