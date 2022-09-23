@@ -54,7 +54,7 @@ func (handler *deltaStreamHandler) OnComplete(lastBlockRef bstream.BlockRef) {
 
 func main() {
 	dfuseEndpoint := "telostest.firehose.eosnation.io"
-	dfuseAPIKey := "dc6087c88050f3caeed46f22767c357c"
+	dfuseAPIKey := "Your api key"
 	chainEndpoint := "https://testnet.telos.caleos.io"
 	client, err := dfclient.NewDfClient(dfuseEndpoint, dfuseAPIKey, chainEndpoint, &slog.Config{Pretty: true, Level: zerolog.TraceLevel})
 
