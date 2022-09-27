@@ -10,14 +10,14 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/dfuse-io/bstream"
 	pbcodec "github.com/dfuse-io/dfuse-eosio/pb/dfuse/eosio/codec/v1"
-	"github.com/dfuse-io/dgrpc"
-	pbbstream "github.com/dfuse-io/pbgo/dfuse/bstream/v1"
 	"github.com/eoscanada/eos-go"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/sebastianmontero/slog-go/slog"
+	"github.com/streamingfast/bstream"
 	dfuse "github.com/streamingfast/client-go"
+	"github.com/streamingfast/dgrpc"
+	pbbstream "github.com/streamingfast/pbgo/dfuse/bstream/v1"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -250,18 +250,14 @@ stream:
 			callOptions = append(callOptions, grpc.PerRPCCredentials(credentials))
 		}
 
-		fmt.Println("Before calling Blocks")
 		stream, err := dfClient.streamClient.Blocks(context.Background(), request, callOptions...)
-		fmt.Println("After calling Blocks")
 		if err != nil {
 			log.Error(err, "unable to start blocks stream")
 			handler.OnError(err)
 			return
 		}
-		fmt.Println("Recieving from stream")
 		for {
 			response, err := stream.Recv()
-			fmt.Println("Resonse from stream:", response)
 			if err != nil {
 				if err == io.EOF {
 					handler.OnComplete(cursor, lastBlockRef)

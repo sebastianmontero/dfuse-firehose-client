@@ -3,12 +3,12 @@ package main
 import (
 	"fmt"
 
-	"github.com/dfuse-io/bstream"
 	pbcodec "github.com/dfuse-io/dfuse-eosio/pb/dfuse/eosio/codec/v1"
-	pbbstream "github.com/dfuse-io/pbgo/dfuse/bstream/v1"
 	"github.com/rs/zerolog"
 	"github.com/sebastianmontero/dfuse-firehose-client/dfclient"
 	"github.com/sebastianmontero/slog-go/slog"
+	"github.com/streamingfast/bstream"
+	pbbstream "github.com/streamingfast/pbgo/dfuse/bstream/v1"
 )
 
 type blockStreamHandler struct {
@@ -53,8 +53,8 @@ func (handler *deltaStreamHandler) OnComplete(lastBlockRef bstream.BlockRef) {
 }
 
 func main() {
-	dfuseEndpoint := "telostest.firehose.eosnation.io"
-	dfuseAPIKey := "Your api key"
+	dfuseEndpoint := "telostest.firehose.eosnation.io:9000"
+	dfuseAPIKey := "dc6087c88050f3caeed46f22767c357c"
 	chainEndpoint := "https://testnet.telos.caleos.io"
 	client, err := dfclient.NewDfClient(dfuseEndpoint, dfuseAPIKey, chainEndpoint, &slog.Config{Pretty: true, Level: zerolog.TraceLevel})
 
