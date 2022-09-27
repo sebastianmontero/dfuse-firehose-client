@@ -204,7 +204,7 @@ func NewDfClient(dfuseEndpoint, dfuseAPIKey, dfuseAuthURL, chainEndpoint string,
 	dfuseClientOptions := make([]dfuse.ClientOption, 0)
 	if dfuseAPIKey == "" {
 		dfuseClientOptions = append(dfuseClientOptions, dfuse.WithoutAuthentication())
-	} else if dfuseAuthURL != dfuseAuthURL {
+	} else if dfuseAuthURL != "" {
 		dfuseClientOptions = append(dfuseClientOptions, dfuse.WithAuthURL(dfuseAuthURL))
 	}
 	dfuseClient, err := dfuse.NewClient(dfuseEndpoint, dfuseAPIKey, dfuseClientOptions...)
