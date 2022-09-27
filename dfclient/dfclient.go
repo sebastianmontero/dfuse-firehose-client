@@ -198,14 +198,14 @@ func (m *DeltaCursor) HasBlockNum() bool {
 }
 
 // NewDfClient DfClient constructor
-func NewDfClient(dfuseEndpoint, dfuseAPIKey, chainEndpoint string, logConfig *slog.Config) (*DfClient, error) {
+func NewDfClient(dfuseEndpoint, dfuseAPIKey, dfuseAuthURL, chainEndpoint string, logConfig *slog.Config) (*DfClient, error) {
 	log = slog.New(logConfig, "dfclient")
 	dialOptions := []grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{InsecureSkipVerify: true}))}
 	dfuseClientOptions := make([]dfuse.ClientOption, 0)
 	if dfuseAPIKey == "" {
 		dfuseClientOptions = append(dfuseClientOptions, dfuse.WithoutAuthentication())
-	} else {
-		dfuseClientOptions = append(dfuseClientOptions, dfuse.WithAuthURL("https://auth.eosnation.io"))
+	} else if dfuseAuthURL != dfuseAuthURL {
+		dfuseClientOptions = append(dfuseClientOptions, dfuse.WithAuthURL(dfuseAuthURL))
 	}
 	dfuseClient, err := dfuse.NewClient(dfuseEndpoint, dfuseAPIKey, dfuseClientOptions...)
 	if err != nil {

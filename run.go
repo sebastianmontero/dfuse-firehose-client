@@ -55,8 +55,10 @@ func (handler *deltaStreamHandler) OnComplete(lastBlockRef bstream.BlockRef) {
 func main() {
 	dfuseEndpoint := "telostest.firehose.eosnation.io:9000"
 	dfuseAPIKey := "dc6087c88050f3caeed46f22767c357c"
+	dfuseAuthURL := "https://auth.eosnation.io"
 	chainEndpoint := "https://testnet.telos.caleos.io"
-	client, err := dfclient.NewDfClient(dfuseEndpoint, dfuseAPIKey, chainEndpoint, &slog.Config{Pretty: true, Level: zerolog.TraceLevel})
+
+	client, err := dfclient.NewDfClient(dfuseEndpoint, dfuseAPIKey, dfuseAuthURL, chainEndpoint, &slog.Config{Pretty: true, Level: zerolog.TraceLevel})
 
 	if err != nil {
 		panic(fmt.Sprintln("Error creating client: ", err))
