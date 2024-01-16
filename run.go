@@ -53,10 +53,10 @@ func (handler *deltaStreamHandler) OnComplete(lastBlockRef bstream.BlockRef) {
 }
 
 func main() {
-	dfuseEndpoint := "telostest.firehose.eosnation.io:9000"
+	dfuseEndpoint := "telos.firehose.eosnation.io:9000"
 	dfuseAPIKey := "dc6087c88050f3caeed46f22767c357c"
 	dfuseAuthURL := "https://auth.eosnation.io"
-	chainEndpoint := "https://testnet.telos.caleos.io"
+	chainEndpoint := "https://mainnet.telos.net"
 
 	client, err := dfclient.NewDfClient(dfuseEndpoint, dfuseAPIKey, dfuseAuthURL, chainEndpoint, &slog.Config{Pretty: true, Level: zerolog.TraceLevel})
 
@@ -75,13 +75,13 @@ func main() {
 	// 	// Details: pbbstream.BlockDetails_BLOCK_DETAILS_FULL,
 	// }, &blockStreamHandler{})
 	deltaRequest := &dfclient.DeltaStreamRequest{
-		StartBlockNum: 194413779,
+		StartBlockNum: 242834360,
 		// StartCursor:    "-NZ02QtqUc65KeC9HlF3Q6WwLpcyB11tXQPmLRREj4un9CaTi5_0AmUgPE_Ywfuj3BfoQl-s2NebQHd888FV6tS5lrw163Q_T3wsktrt-OLsLfr3OA0TcuhkDuuMY9DRWjvVagL4frAJ6tW2PqePMxZgMMcvJDe1h2pWpdFccaMX63c9yjr4J8eA0aiV9oQUrbMsEOXzx3qmVmYof04POsSLbvHK6mp2Z3E=__172883755__0__0",
 		StopBlockNum:   0,
 		ForkSteps:      []pbbstream.ForkStep{pbbstream.ForkStep_STEP_NEW, pbbstream.ForkStep_STEP_UNDO},
 		ReverseUndoOps: true,
 	}
 	// deltaRequest.AddTables("eosio", []string{"payments"})
-	deltaRequest.AddTables("mtdhoxhyphaa", []string{"documents", "edges"})
+	deltaRequest.AddTables("dao.hypha", []string{"documents", "edges"})
 	client.DeltaStream(deltaRequest, &deltaStreamHandler{})
 }
