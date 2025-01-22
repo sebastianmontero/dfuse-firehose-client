@@ -2,7 +2,6 @@ package dfclient
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -10,17 +9,12 @@ import (
 	"strconv"
 	"time"
 
-	pbcodec "github.com/dfuse-io/dfuse-eosio/pb/dfuse/eosio/codec/v1"
-	"github.com/eoscanada/eos-go"
-	"github.com/golang/protobuf/ptypes"
+	pbantelope "github.com/pinax-network/firehose-antelope/types/pb/sf/antelope/type/v1"
 	"github.com/sebastianmontero/slog-go/slog"
-	"github.com/streamingfast/bstream"
-	dfuse "github.com/streamingfast/client-go"
 	"github.com/streamingfast/dgrpc"
-	pbbstream "github.com/streamingfast/pbgo/dfuse/bstream/v1"
+	pbfirehose "github.com/streamingfast/pbgo/sf/firehose/v2"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/oauth"
 )
 
@@ -32,35 +26,28 @@ var (
 
 // DfClient class, main entry point
 type DfClient struct {
-	dfuseClient  dfuse.Client
-	streamClient pbbstream.BlockStreamV2Client
-	decoder      *Decoder
-	apiKey       string
-}
-
-func (m *DfClient) IsUsingAuthentication() bool {
-	return m.apiKey != ""
+	streamClient pbfirehose.StreamClient
 }
 
 // BlockStreamHandler Should be implemented by any client that wants to process blocks
 type BlockStreamHandler interface {
-	OnBlock(block *pbcodec.Block, cursor string, forkStep pbbstream.ForkStep)
+	OnBlock(block *pbantelope.Block, cursor string, forkStep pbfirehose.ForkStep)
 	OnError(err error)
-	OnComplete(cursor string, lastBlockRef bstream.BlockRef)
+	OnComplete(cursor string)
 	Cursor(cursor string) string
 }
 
 // TableDelta Contains table data data
 type TableDelta struct {
-	Operation  pbcodec.DBOp_Operation
+	Operation  pbantelope.DBOp_Operation
 	Code       string
 	Scope      string
 	TableName  string
 	PrimaryKey string
-	OldData    []byte
-	NewData    []byte
-	DBOp       *pbcodec.DBOp
-	Block      *pbcodec.Block
+	OldData    string
+	NewData    string
+	DBOp       *pbantelope.DBOp
+	Block      *pbantelope.Block
 }
 
 func (m *TableDelta) String() string {
@@ -78,10 +65,10 @@ func (m *TableDelta) String() string {
 
 // DeltaStreamHandler Should be implemented by any client that wants to process table deltas
 type DeltaStreamHandler interface {
-	OnDelta(delta *TableDelta, cursor string, forkStep pbbstream.ForkStep)
-	OnHeartBeat(block *pbcodec.Block, cursor string)
+	OnDelta(delta *TableDelta, cursor string, forkStep pbfirehose.ForkStep)
+	OnHeartBeat(block *pbantelope.Block, cursor string)
 	OnError(err error)
-	OnComplete(lastBlockRef bstream.BlockRef)
+	OnComplete()
 }
 
 // DeltaStreamRequest Enables the specification of a delta request
@@ -89,7 +76,7 @@ type DeltaStreamRequest struct {
 	StartBlockNum      int64
 	StartCursor        string
 	StopBlockNum       uint64
-	ForkSteps          []pbbstream.ForkStep
+	FinalBlocksOnly    bool
 	ReverseUndoOps     bool
 	HeartBeatFrequency uint
 	tables             map[string]map[string]bool
@@ -163,21 +150,21 @@ func (m *DeltaCursor) Update(cursor string) error {
 	if cursor != "" {
 		matches := reDeltaIndex.FindAllStringSubmatch(cursor, -1)
 		if len(matches) == 0 {
-			return fmt.Errorf("Invalid start cursor, no deltaIndex: %v", cursor)
+			return fmt.Errorf("invalid start cursor, no deltaIndex: %v", cursor)
 		}
 
 		blockNum, err := strconv.ParseUint(matches[0][2], 10, 64)
 		if err != nil {
-			return fmt.Errorf("Invalid start cursor, invalid blockNum: %v", cursor)
+			return fmt.Errorf("invalid start cursor, invalid blockNum: %v", cursor)
 		}
 
 		traceIndex, err := strconv.Atoi(matches[0][3])
 		if err != nil {
-			return fmt.Errorf("Invalid start cursor, invalid traceIndex: %v", cursor)
+			return fmt.Errorf("invalid start cursor, invalid traceIndex: %v", cursor)
 		}
 		deltaIndex, err := strconv.Atoi(matches[0][4])
 		if err != nil {
-			return fmt.Errorf("Invalid start cursor, invalid deltaIndex: %v", cursor)
+			return fmt.Errorf("invalid start cursor, invalid deltaIndex: %v", cursor)
 		}
 		m.BlockCursor = matches[0][1]
 		m.BlockNum = blockNum
@@ -198,59 +185,27 @@ func (m *DeltaCursor) HasBlockNum() bool {
 }
 
 // NewDfClient DfClient constructor
-func NewDfClient(dfuseEndpoint, dfuseAPIKey, dfuseAuthURL, chainEndpoint string, logConfig *slog.Config) (*DfClient, error) {
+func NewDfClient(dfuseEndpoint, dfuseJWT string, logConfig *slog.Config) (*DfClient, error) {
 	log = slog.New(logConfig, "dfclient")
-	dialOptions := []grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{InsecureSkipVerify: true}))}
-	dfuseClientOptions := make([]dfuse.ClientOption, 0)
-	if dfuseAPIKey == "" {
-		dfuseClientOptions = append(dfuseClientOptions, dfuse.WithoutAuthentication())
-	} else if dfuseAuthURL != "" {
-		dfuseClientOptions = append(dfuseClientOptions, dfuse.WithAuthURL(dfuseAuthURL))
-	}
-	dfuseClient, err := dfuse.NewClient(dfuseEndpoint, dfuseAPIKey, dfuseClientOptions...)
-	if err != nil {
-		log.Error(err, "Unable to create dfuse client")
-		return nil, err
-	}
 
-	conn, err := dgrpc.NewExternalClient(dfuseEndpoint, dialOptions...)
+	conn, err := dgrpc.NewExternalClient(dfuseEndpoint, grpc.WithPerRPCCredentials(oauth.TokenSource{TokenSource: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: dfuseJWT})}))
 	if err != nil {
 		log.Errorf(err, "Unable to create external gRPC client to: %v", dfuseEndpoint)
-		return nil, err
 	}
 
-	streamClient := pbbstream.NewBlockStreamV2Client(conn)
-
-	decoder := NewDecoder(chainEndpoint)
+	streamClient := pbfirehose.NewStreamClient(conn)
 	return &DfClient{
-		dfuseClient:  dfuseClient,
 		streamClient: streamClient,
-		decoder:      decoder,
-		apiKey:       dfuseAPIKey,
 	}, nil
 }
 
 // BlockStream enables the streaming of blocks
-func (dfClient *DfClient) BlockStream(request *pbbstream.BlocksRequestV2, handler BlockStreamHandler) {
+func (dfClient *DfClient) BlockStream(request *pbfirehose.Request, handler BlockStreamHandler) {
 	cursor := ""
-	lastBlockRef := bstream.BlockRefEmpty
 	log.Infof("Starting a block stream, request: %v", request)
 stream:
 	for {
-		callOptions := make([]grpc.CallOption, 0)
-		if dfClient.IsUsingAuthentication() {
-			tokenInfo, err := dfClient.dfuseClient.GetAPITokenInfo(context.Background())
-			if err != nil {
-				log.Error(err, "Unable to retrieve dfuse API token")
-				handler.OnError(err)
-				return
-			}
-
-			credentials := oauth.NewOauthAccess(&oauth2.Token{AccessToken: tokenInfo.Token, TokenType: "Bearer"})
-			callOptions = append(callOptions, grpc.PerRPCCredentials(credentials))
-		}
-
-		stream, err := dfClient.streamClient.Blocks(context.Background(), request, callOptions...)
+		stream, err := dfClient.streamClient.Blocks(context.Background(), request)
 		if err != nil {
 			log.Error(err, "unable to start blocks stream")
 			handler.OnError(err)
@@ -260,40 +215,37 @@ stream:
 			response, err := stream.Recv()
 			if err != nil {
 				if err == io.EOF {
-					handler.OnComplete(cursor, lastBlockRef)
+					handler.OnComplete(cursor)
 					break stream
 				}
-				request.StartCursor = handler.Cursor(cursor)
-				log.Warnf("Stream encountered a remote error, going to retry, cursor: %v, retry delay: %v, err: %v", request.StartCursor, retryDelay, err)
+				request.Cursor = handler.Cursor(cursor)
+				log.Warnf("Stream encountered a remote error, going to retry, cursor: %v, retry delay: %v, err: %v", request.Cursor, retryDelay, err)
 				break
 			}
 
-			// logger.Println("Decoding received message's block")
-			block := &pbcodec.Block{}
-			err = ptypes.UnmarshalAny(response.Block, block)
+			var block pbantelope.Block
+			err = response.Block.UnmarshalTo(&block)
 			if err != nil {
 				log.Error(err, "should have been able to unmarshal received block payload")
 				handler.OnError(err)
 				return
 			}
 			cursor = response.Cursor
-			lastBlockRef = block.AsRef()
 			if !block.FilteringApplied || block.FilteredTransactionTraceCount > 0 {
-				handler.OnBlock(block, cursor, response.Step)
+				handler.OnBlock(&block, cursor, response.Step)
 			}
 		}
 	}
 }
 
 type deltaBlockStreamHandler struct {
-	decoder             *Decoder
 	request             *DeltaStreamRequest
 	handler             DeltaStreamHandler
 	countSinceHeartBeat uint
 }
 
-func (m *deltaBlockStreamHandler) OnBlock(block *pbcodec.Block, cursor string, forkStep pbbstream.ForkStep) {
-	reverse := m.request.ReverseUndoOps && forkStep == pbbstream.ForkStep_STEP_UNDO
+func (m *deltaBlockStreamHandler) OnBlock(block *pbantelope.Block, cursor string, forkStep pbfirehose.ForkStep) {
+	reverse := m.request.ReverseUndoOps && forkStep == pbfirehose.ForkStep_STEP_UNDO
 	traces := block.TransactionTraces()
 	if reverse {
 		traces = reverseTraces(traces)
@@ -312,30 +264,16 @@ func (m *deltaBlockStreamHandler) OnBlock(block *pbcodec.Block, cursor string, f
 			dbOp := dbOps[deltaIndex]
 			if m.request.HasTable(dbOp.Code, dbOp.TableName) {
 				operation := dbOp.Operation
-				var oldData, newData []byte
-				var err error
-				account := eos.AccountName(dbOp.Code)
-				table := eos.TableName(dbOp.TableName)
-				if dbOp.OldData != nil {
-					oldData, err = m.decoder.Decode(account, table, dbOp.OldData)
-					if err != nil {
-						log.Errorf(err, "Error decoding old data for account: %v, table: %v, blocknum: %v, traceIndex: %v, deltaIndex: %v", account, table, block.Number, traceIndex, deltaIndex)
-					}
-				}
-				if dbOp.NewData != nil {
-					newData, err = m.decoder.Decode(account, table, dbOp.NewData)
-					if err != nil {
-						log.Errorf(err, "Error decoding new data for account: %v, table: %v, blocknum: %v, traceIndex: %v, deltaIndex: %v", account, table, block.Number, traceIndex, deltaIndex)
-					}
-				}
+				oldData := dbOp.OldDataJson
+				newData := dbOp.NewDataJson
 				if reverse {
 					tmp := oldData
 					oldData = newData
 					newData = tmp
-					if operation == pbcodec.DBOp_OPERATION_INSERT {
-						operation = pbcodec.DBOp_OPERATION_REMOVE
-					} else if operation == pbcodec.DBOp_OPERATION_REMOVE {
-						operation = pbcodec.DBOp_OPERATION_INSERT
+					if operation == pbantelope.DBOp_OPERATION_INSERT {
+						operation = pbantelope.DBOp_OPERATION_REMOVE
+					} else if operation == pbantelope.DBOp_OPERATION_REMOVE {
+						operation = pbantelope.DBOp_OPERATION_INSERT
 					}
 				}
 				deltaCursor.DeltaIndex = deltaIndex + 1
@@ -371,8 +309,8 @@ func (m *deltaBlockStreamHandler) OnError(err error) {
 	m.handler.OnError(err)
 }
 
-func (m *deltaBlockStreamHandler) OnComplete(cursor string, lastBlockRef bstream.BlockRef) {
-	m.handler.OnComplete(lastBlockRef)
+func (m *deltaBlockStreamHandler) OnComplete(cursor string) {
+	m.handler.OnComplete()
 }
 
 func (m *deltaBlockStreamHandler) Cursor(cursor string) string {
@@ -383,7 +321,7 @@ func (m *deltaBlockStreamHandler) Cursor(cursor string) string {
 func (dfClient *DfClient) DeltaStream(request *DeltaStreamRequest, handler DeltaStreamHandler) {
 	contracts := request.Contracts()
 	if len(contracts) == 0 {
-		handler.OnError(errors.New("At least one table has to be specified in the request"))
+		handler.OnError(errors.New("at least one table has to be specified in the request"))
 		return
 	}
 	cursor, err := request.ParseCursor()
@@ -398,31 +336,28 @@ func (dfClient *DfClient) DeltaStream(request *DeltaStreamRequest, handler Delta
 		startBlockNum = request.StartBlockNum
 	}
 	// filter := "receiver in ['" + strings.Join(contracts, "','") + "']"
-	dfClient.BlockStream(&pbbstream.BlocksRequestV2{
-		StartBlockNum: startBlockNum,
-		StartCursor:   cursor.BlockCursor,
-		StopBlockNum:  request.StopBlockNum,
-		ForkSteps:     request.ForkSteps,
-		// IncludeFilterExpr: filter,
-		Details: pbbstream.BlockDetails_BLOCK_DETAILS_FULL,
+	dfClient.BlockStream(&pbfirehose.Request{
+		StartBlockNum:   startBlockNum,
+		Cursor:          cursor.BlockCursor,
+		StopBlockNum:    request.StopBlockNum,
+		FinalBlocksOnly: request.FinalBlocksOnly,
 	}, &deltaBlockStreamHandler{
-		decoder: dfClient.decoder,
 		request: request,
 		handler: handler,
 	})
 
 }
 
-func reverseTraces(traces []*pbcodec.TransactionTrace) []*pbcodec.TransactionTrace {
-	reverse := make([]*pbcodec.TransactionTrace, 0, len(traces))
+func reverseTraces(traces []*pbantelope.TransactionTrace) []*pbantelope.TransactionTrace {
+	reverse := make([]*pbantelope.TransactionTrace, 0, len(traces))
 	for i := len(traces) - 1; i >= 0; i-- {
 		reverse = append(reverse, traces[i])
 	}
 	return reverse
 }
 
-func reverseDBOps(dbOps []*pbcodec.DBOp) []*pbcodec.DBOp {
-	reverse := make([]*pbcodec.DBOp, 0, len(dbOps))
+func reverseDBOps(dbOps []*pbantelope.DBOp) []*pbantelope.DBOp {
+	reverse := make([]*pbantelope.DBOp, 0, len(dbOps))
 	for i := len(dbOps) - 1; i >= 0; i-- {
 		reverse = append(reverse, dbOps[i])
 	}
