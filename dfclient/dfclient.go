@@ -16,6 +16,7 @@ import (
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/oauth"
+    "google.golang.org/grpc/encoding/gzip"
 )
 
 var (
@@ -186,9 +187,17 @@ func (m *DeltaCursor) HasBlockNum() bool {
 
 // NewDfClient DfClient constructor
 func NewDfClient(dfuseEndpoint, dfuseJWT string, logConfig *slog.Config) (*DfClient, error) {
-	log = slog.New(logConfig, "dfclient")
+	log = slog.New(logConfig, "dfclient 2.0")
 
-	conn, err := dgrpc.NewExternalClient(dfuseEndpoint, grpc.WithPerRPCCredentials(oauth.TokenSource{TokenSource: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: dfuseJWT})}))
+    // Add gRPC compression option
+    conn, err := dgrpc.NewExternalClient(
+        dfuseEndpoint,
+        grpc.WithDefaultCallOptions(grpc.UseCompressor(gzip.Name)), // Enable gzip compression
+        grpc.WithPerRPCCredentials(oauth.TokenSource{
+            TokenSource: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: dfuseJWT}),
+        }),
+    )
+	
 	if err != nil {
 		log.Errorf(err, "Unable to create external gRPC client to: %v", dfuseEndpoint)
 	}
