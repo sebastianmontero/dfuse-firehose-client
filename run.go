@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	pbantelope "github.com/pinax-network/firehose-antelope/types/pb/sf/antelope/type/v1"
+	pbantelope "buf.build/gen/go/pinax/firehose-antelope/protocolbuffers/go/sf/antelope/type/v1"
 	"github.com/rs/zerolog"
 	"github.com/sebastianmontero/dfuse-firehose-client/dfclient"
 	"github.com/sebastianmontero/slog-go/slog"
@@ -40,7 +40,7 @@ func (handler *deltaStreamHandler) OnDelta(delta *dfclient.TableDelta, cursor st
 }
 
 func (handler *deltaStreamHandler) OnHeartBeat(block *pbantelope.Block, cursor string) {
-	fmt.Println("On Heartbeat, block num: ", block.Number, " cursor: ", cursor)
+	// fmt.Println("On Heartbeat, block num: ", block.Number, " cursor: ", cursor)
 }
 
 func (handler *deltaStreamHandler) OnError(err error) {
@@ -52,10 +52,11 @@ func (handler *deltaStreamHandler) OnComplete() {
 }
 
 func main() {
-	dfuseEndpoint := "telos.firehose.pinax.network:443"
-	dfuseJWT := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL2FwaS5hY2NvdW50LnBpbmF4Lm5ldHdvcmsvdjEvIiwic3ViIjoiZDllMzYwNTUtZDI3OS00ZTQ2LTgwYzgtNjhlYjQ1NmFmYTAyIiwiYXVkIjpbImh0dHBzOi8vYWNjb3VudC5waW5heC5uZXR3b3JrLyJdLCJleHAiOjIwMjA3NzY2ODIsImlhdCI6MTcwNTQxNjY4MiwiYXBpX2tleV9pZCI6ImI3M2JlMjVmLWMyZjctNDlkZC1iZjA4LWEyMDRkZTc5ZTg5ZCJ9.Qdkm1n7yJP7GxHMDL66yfIS7Kr588wfKUasQhYfBBhc"
+	// dfuseEndpoint := "telos.firehose.pinax.network:443"
+	dfuseEndpoint := "telostest.firehose.pinax.network:443"
+	apiKey := "c27bda2cf80e371244cf3ba8f295c4539c52e106d1e9b6c0"
 
-	client, err := dfclient.NewDfClient(dfuseEndpoint, dfuseJWT, &slog.Config{Pretty: true, Level: zerolog.TraceLevel})
+	client, err := dfclient.NewDfClient(dfuseEndpoint, apiKey, &slog.Config{Pretty: true, Level: zerolog.TraceLevel})
 
 	if err != nil {
 		panic(fmt.Sprintln("Error creating client: ", err))
@@ -72,13 +73,15 @@ func main() {
 	// 	// Details: pbbstream.BlockDetails_BLOCK_DETAILS_FULL,
 	// }, &blockStreamHandler{})
 	deltaRequest := &dfclient.DeltaStreamRequest{
-		StartBlockNum: 320030296,
+		StartBlockNum: 374038091,
 		// StartCursor:    "-NZ02QtqUc65KeC9HlF3Q6WwLpcyB11tXQPmLRREj4un9CaTi5_0AmUgPE_Ywfuj3BfoQl-s2NebQHd888FV6tS5lrw163Q_T3wsktrt-OLsLfr3OA0TcuhkDuuMY9DRWjvVagL4frAJ6tW2PqePMxZgMMcvJDe1h2pWpdFccaMX63c9yjr4J8eA0aiV9oQUrbMsEOXzx3qmVmYof04POsSLbvHK6mp2Z3E=__172883755__0__0",
-		StopBlockNum:    0,
+		StopBlockNum: 374038091,
+		// StopBlockNum:    0,
 		FinalBlocksOnly: false,
 		ReverseUndoOps:  true,
 	}
 	// deltaRequest.AddTables("eosio", []string{"payments"})
-	deltaRequest.AddTables("dao.hypha", []string{"documents", "edges"})
+	// deltaRequest.AddTables("dao.hypha", []string{"documents", "edges"})
+	deltaRequest.AddTables("bennyfiuat11", []string{"auths"})
 	client.DeltaStream(deltaRequest, &deltaStreamHandler{})
 }

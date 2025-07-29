@@ -9,13 +9,14 @@ import (
 	"strconv"
 	"time"
 
-	pbantelope "github.com/pinax-network/firehose-antelope/types/pb/sf/antelope/type/v1"
-	"github.com/sebastianmontero/slog-go/slog"
-	"github.com/streamingfast/dgrpc"
-	pbfirehose "github.com/streamingfast/pbgo/sf/firehose/v2"
-	"golang.org/x/oauth2"
+	"github.com/mostynb/go-grpc-compression/zstd"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/oauth"
+
+	pbantelope "buf.build/gen/go/pinax/firehose-antelope/protocolbuffers/go/sf/antelope/type/v1"
+	"github.com/sebastianmontero/slog-go/slog"
+	pbfirehose "github.com/streamingfast/pbgo/sf/firehose/v2"
+
+	"github.com/streamingfast/firehose-core/firehose/client"
 )
 
 var (
@@ -27,6 +28,8 @@ var (
 // DfClient class, main entry point
 type DfClient struct {
 	streamClient pbfirehose.StreamClient
+	closeFunc    func() error
+	callOpts     []grpc.CallOption
 }
 
 // BlockStreamHandler Should be implemented by any client that wants to process blocks
@@ -185,17 +188,26 @@ func (m *DeltaCursor) HasBlockNum() bool {
 }
 
 // NewDfClient DfClient constructor
-func NewDfClient(dfuseEndpoint, dfuseJWT string, logConfig *slog.Config) (*DfClient, error) {
+func NewDfClient(dfuseEndpoint, apiKey string, logConfig *slog.Config) (*DfClient, error) {
 	log = slog.New(logConfig, "dfclient")
 
-	conn, err := dgrpc.NewExternalClient(dfuseEndpoint, grpc.WithPerRPCCredentials(oauth.TokenSource{TokenSource: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: dfuseJWT})}))
+	// Create a new Firehose stream client to connect to the infrastructure. The parameters set here are set for our
+	// public endpoints.
+	//
+	// In case you are running a Firehose node yourself, you might want to set useInsecureTLSConnection or use
+	// PlainTextConnection depending on whether you are using self-signed TLS certificates or non-TLS connections.
+	fhClient, closeFunc, callOpts, err := client.NewFirehoseClient(dfuseEndpoint, "", apiKey, false, false)
 	if err != nil {
-		log.Errorf(err, "Unable to create external gRPC client to: %v", dfuseEndpoint)
+		log.Panic(err, "failed to create Firehose client")
 	}
 
-	streamClient := pbfirehose.NewStreamClient(conn)
+	// Optionally you can enable gRPC compression
+	callOpts = append(callOpts, grpc.UseCompressor(zstd.Name))
+
 	return &DfClient{
-		streamClient: streamClient,
+		streamClient: fhClient,
+		closeFunc:    closeFunc,
+		callOpts:     callOpts,
 	}, nil
 }
 
@@ -203,9 +215,10 @@ func NewDfClient(dfuseEndpoint, dfuseJWT string, logConfig *slog.Config) (*DfCli
 func (dfClient *DfClient) BlockStream(request *pbfirehose.Request, handler BlockStreamHandler) {
 	cursor := ""
 	log.Infof("Starting a block stream, request: %v", request)
+	defer dfClient.closeFunc()
 stream:
 	for {
-		stream, err := dfClient.streamClient.Blocks(context.Background(), request)
+		stream, err := dfClient.streamClient.Blocks(context.Background(), request, dfClient.callOpts...)
 		if err != nil {
 			log.Error(err, "unable to start blocks stream")
 			handler.OnError(err)
@@ -246,22 +259,25 @@ type deltaBlockStreamHandler struct {
 
 func (m *deltaBlockStreamHandler) OnBlock(block *pbantelope.Block, cursor string, forkStep pbfirehose.ForkStep) {
 	reverse := m.request.ReverseUndoOps && forkStep == pbfirehose.ForkStep_STEP_UNDO
-	traces := block.TransactionTraces()
+	traces := block.GetUnfilteredTransactionTraces()
 	if reverse {
 		traces = reverseTraces(traces)
 	}
 	deltaCursor := m.request.cursor
 	deltaCursor.BlockNum = uint64(block.Number)
+	// fmt.Println("On Block: ", block, "Cursor: ", cursor, "Fork Step:", forkStep)
 	m.countSinceHeartBeat++
 	for traceIndex := deltaCursor.TraceIndex; traceIndex < len(traces); traceIndex++ {
 		deltaCursor.TraceIndex = traceIndex
 		trace := traces[traceIndex]
 		dbOps := trace.DbOps
+		// fmt.Println("On Trace: ", traceIndex, "Cursor: ", cursor, "Fork Step:", forkStep, "DBOps: ", len(dbOps))
 		if reverse {
 			dbOps = reverseDBOps(dbOps)
 		}
 		for deltaIndex := deltaCursor.DeltaIndex; deltaIndex < len(dbOps); deltaIndex++ {
 			dbOp := dbOps[deltaIndex]
+			// fmt.Println("On Delta: ", deltaIndex, "Cursor: ", cursor, "Fork Step:", forkStep, "DBOp: ", dbOp)
 			if m.request.HasTable(dbOp.Code, dbOp.TableName) {
 				operation := dbOp.Operation
 				oldData := dbOp.OldDataJson
