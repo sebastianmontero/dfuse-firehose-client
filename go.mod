@@ -1,4 +1,4 @@
-module github.com/sebastianmontero/dfuse-firehose-client
+module github.com/hypha-dao/dfuse-firehose-client-2
 
 go 1.22
 
